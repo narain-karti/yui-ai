@@ -11,6 +11,7 @@ import DualLoopShowcase from './components/DualLoopShowcase';
 import MultiModalEngine from './components/MultiModalEngine';
 import TelegramMiniApp from './components/TelegramMiniApp';
 import SystemArchitecture from './components/SystemArchitecture';
+import BookingEmail from './components/BookingEmail';
 import AccessibilityFeatures from './components/AccessibilityFeatures';
 import LocationConcierge from './components/LocationConcierge';
 import Process from './components/Process';
@@ -31,6 +32,7 @@ export default function App() {
         <MultiModalEngine />
         <SystemArchitecture />
         <TelegramMiniApp />
+        <BookingEmail />
         <AccessibilityFeatures />
         <LocationConcierge />
         <Process />
