@@ -56,15 +56,7 @@ export default function Team() {
                   referrerPolicy="no-referrer"
                 />
                 
-                {/* Hover overlay with social links */}
-                <div className="absolute inset-0 bg-accent/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4">
-                  <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-accent hover:scale-110 transition-transform">
-                    <Twitter className="w-5 h-5" />
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-accent hover:scale-110 transition-transform">
-                    <Linkedin className="w-5 h-5" />
-                  </a>
-                </div>
+                {/* Hover overlay with social links removed */}
               </div>
               
               <h3 className="text-2xl font-display font-bold mb-2 group-hover:text-accent transition-colors">
