@@ -80,55 +80,114 @@ export default function TechStackBlueprint() {
           </p>
         </div>
 
-        <motion.div style={{ y }} className="max-w-4xl mx-auto relative">
-          {layers.map((layer, index) => (
-            <div key={layer.id} className="relative">
-              <motion.div
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.8, delay: index * 0.15, type: "spring", bounce: 0.4 }}
-                className={`p-6 md:p-8 rounded-3xl bg-surface/80 backdrop-blur-xl border ${layer.borderColor} shadow-2xl relative overflow-hidden group mb-6`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-r ${layer.color} opacity-10 group-hover:opacity-20 transition-opacity duration-500`} />
-                
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-                  <div className={`w-16 h-16 rounded-2xl bg-bg border ${layer.borderColor} flex items-center justify-center flex-shrink-0 ${layer.textColor} shadow-[0_0_30px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-500`}>
-                    {layer.icon}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-2">
-                      <h3 className="text-2xl font-display font-bold text-white">
-                        {layer.name}
-                      </h3>
-                      <span className={`text-xs font-mono px-3 py-1 rounded-full border ${layer.borderColor} ${layer.textColor} bg-bg/50`}>
-                        {layer.tech}
-                      </span>
-                    </div>
-                    <p className="text-secondary leading-relaxed">
-                      {layer.description}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
+        <motion.div style={{ y }} className="max-w-5xl mx-auto relative py-12">
+          {/* Central Animated Spine */}
+          <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-white/5 -translate-x-1/2 hidden md:block">
+            <motion.div
+              animate={{ y: ["0%", "100%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-[4px] h-32 bg-gradient-to-b from-transparent via-accent to-transparent rounded-full shadow-[0_0_15px_#FF4F00]"
+            />
+          </div>
 
-              {/* Connector Line */}
-              {index < layers.length - 1 && (
-                <div className="flex justify-center -mt-4 mb-2 relative z-0">
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    whileInView={{ height: 40, opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5, delay: index * 0.15 + 0.4 }}
-                    className="w-px bg-gradient-to-b from-white/20 to-white/5 flex items-center justify-center"
-                  >
-                    <ArrowDown className="w-4 h-4 text-white/20 absolute bottom-0 translate-y-1/2 bg-bg rounded-full" />
-                  </motion.div>
+          <div className="space-y-16 md:space-y-24">
+            {layers.map((layer, index) => {
+              const isEven = index % 2 === 0;
+              
+              return (
+                <div key={layer.id} className="relative flex flex-col md:flex-row items-center justify-between w-full">
+                  
+                  {/* Left Side (Empty for Odd, Content for Even) */}
+                  <div className={`w-full md:w-[45%] flex ${isEven ? 'justify-end md:pr-12' : 'justify-start md:pl-12 md:order-last'}`}>
+                    <motion.div
+                      initial={{ opacity: 0, x: isEven ? -100 : 100, rotateY: isEven ? -15 : 15 }}
+                      whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
+                      viewport={{ once: true, margin: "-100px" }}
+                      transition={{ 
+                        type: "spring", 
+                        damping: 20, 
+                        stiffness: 100, 
+                        delay: index * 0.2 
+                      }}
+                      whileHover={{ scale: 1.05, zIndex: 20 }}
+                      className={`p-6 md:p-8 rounded-3xl bg-surface/90 backdrop-blur-2xl border ${layer.borderColor} shadow-2xl relative overflow-hidden group w-full`}
+                      style={{ transformStyle: 'preserve-3d' }}
+                    >
+                      {/* Animated Glow Overlay */}
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0.1, 0.3, 0.1] }}
+                        transition={{ duration: 4, repeat: Infinity, delay: index }}
+                        className={`absolute inset-0 bg-gradient-to-br ${layer.color} pointer-events-none`} 
+                      />
+                      
+                      <div className="relative z-10">
+                        <div className={`w-14 h-14 rounded-2xl bg-bg border ${layer.borderColor} flex items-center justify-center mb-6 ${layer.textColor} shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:shadow-[0_0_30px_#fff3] transition-all duration-500`}>
+                          <motion.div
+                            whileHover={{ rotate: 360 }}
+                            transition={{ duration: 0.8 }}
+                          >
+                            {layer.icon}
+                          </motion.div>
+                        </div>
+                        
+                        <div className="mb-4 space-y-2">
+                          <h3 className="text-2xl font-display font-bold text-white">
+                            {layer.name}
+                          </h3>
+                          <span className={`inline-block text-xs font-mono px-3 py-1 rounded-full border ${layer.borderColor} ${layer.textColor} bg-bg/80 shadow-inner`}>
+                            {layer.tech}
+                          </span>
+                        </div>
+                        <p className="text-secondary leading-relaxed text-sm">
+                          {layer.description}
+                        </p>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  {/* Central Node Connection */}
+                  <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center justify-center z-10">
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      whileInView={{ scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ type: "spring", delay: index * 0.2 + 0.3 }}
+                      className={`w-8 h-8 rounded-full bg-bg border-4 ${layer.borderColor} relative flex items-center justify-center`}
+                    >
+                      <div className={`w-2 h-2 rounded-full bg-white ${isEven ? 'animate-pulse' : ''}`} />
+                    </motion.div>
+                    
+                    {/* Horizontal Connector */}
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      whileInView={{ width: "38%" }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.8, delay: index * 0.2 + 0.4 }}
+                      className={`absolute h-[2px] ${layer.borderColor} border-t-2 border-dashed opacity-50 ${isEven ? 'right-4' : 'left-4'}`}
+                    />
+                  </div>
+
+                  {/* Mobile Mobile Connector */}
+                  {index < layers.length - 1 && (
+                    <div className="md:hidden flex justify-center py-6 relative z-0 w-full">
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        whileInView={{ height: 60, opacity: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.5, delay: index * 0.2 + 0.4 }}
+                        className={`w-1 border-r-2 border-dashed ${layer.borderColor} opacity-50`}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Empty Spacer for alternating layout */}
+                  <div className="hidden md:block w-[45%]" />
+                  
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </motion.div>
       </div>
     </section>
