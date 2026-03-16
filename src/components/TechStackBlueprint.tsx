@@ -89,7 +89,7 @@ export default function TechStackBlueprint() {
             />
           </div>
 
-          <div className="space-y-16 md:space-y-24">
+          <div className="space-y-8 md:space-y-12">
             {layers.map((layer, index) => {
               const isEven = index % 2 === 0;
               
