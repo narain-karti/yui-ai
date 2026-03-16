@@ -16,6 +16,7 @@ import AccessibilityFeatures from './components/AccessibilityFeatures';
 import LocationConcierge from './components/LocationConcierge';
 import Process from './components/Process';
 import Team from './components/Team';
+import FutureAIFeatures from './components/FutureAIFeatures';
 import BusinessImpact from './components/BusinessImpact';
 import RoadmapMetrics from './components/RoadmapMetrics';
 import Footer from './components/Footer';
@@ -37,6 +38,7 @@ export default function App() {
         <LocationConcierge />
         <Process />
         <Team />
+        <FutureAIFeatures />
         <BusinessImpact />
         <RoadmapMetrics />
       </main>
