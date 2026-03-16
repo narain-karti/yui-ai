@@ -84,9 +84,8 @@ export default function TechStackBlueprint() {
           {/* Central Animated Spine */}
           <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-white/5 -translate-x-1/2 hidden md:block">
             <motion.div
-              animate={{ y: ["0%", "100%"] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              className="absolute top-0 left-1/2 -translate-x-1/2 w-[4px] h-32 bg-gradient-to-b from-transparent via-accent to-transparent rounded-full shadow-[0_0_15px_#FF4F00]"
+              style={{ scaleY: useTransform(scrollYProgress, [0.1, 0.9], [0, 1]) }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-[4px] h-full bg-gradient-to-b from-accent/50 via-accent to-accent/50 rounded-full shadow-[0_0_15px_#FF4F00] origin-top"
             />
           </div>
 
