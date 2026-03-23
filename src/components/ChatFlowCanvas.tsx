@@ -1,33 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
-import { ReactFlow, Background, Controls, useNodesState, useEdgesState, Node, Edge, Handle, Position } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import { motion, AnimatePresence } from 'motion/react';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
-import { useAppSounds } from '../hooks/useAppSounds';
-import { GoogleGenAI } from '@google/genai';
+import mermaid from 'mermaid';
 
-// Custom Minimalist Node
-const LogicNode = ({ data }: any) => {
-  return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0, y: 20 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`px-4 py-3 rounded-xl border flex items-center justify-center text-center shadow-lg relative ${
-        data.type === 'trigger' ? 'bg-red-500/10 border-red-500/50' :
-        data.type === 'action' ? 'bg-accent/10 border-accent/50' :
-        data.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/50' :
-        'bg-surface border-white/10'
-      }`}
-    >
-      <Handle type="target" position={Position.Left} className="opacity-0 w-full h-full absolute inset-0 z-0" />
-      <span className="text-sm font-medium text-white relative z-10">{data.label}</span>
-      <Handle type="source" position={Position.Right} className="opacity-0 w-full h-full absolute inset-0 z-0" />
-    </motion.div>
-  );
+mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+
+const MermaidGraph = ({ chart }: { chart: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (ref.current && chart) {
+      mermaid.render('mermaid-svg-' + Math.random().toString(36).substring(7), chart)
+        .then(({ svg }) => {
+          if (ref.current) ref.current.innerHTML = svg;
+        })
+        .catch(e => {
+          console.error("Mermaid Render Error:", e);
+          if (ref.current) ref.current.innerHTML = "<div class='text-red-500 font-mono text-xs'>Invalid flowchart generated.</div>";
+        });
+    }
+  }, [chart]);
+  
+  return <div ref={ref} className="w-full h-full flex items-center justify-center p-8 overflow-auto [&>svg]:max-w-full [&>svg]:h-auto" />;
 };
-
-const nodeTypes = { logic: LogicNode };
 
 const SUGGESTED_QUERIES = [
   "What happens if I miss my connecting flight?",
@@ -37,12 +30,11 @@ const SUGGESTED_QUERIES = [
 
 // Initialize GenAI
 const ai = new GoogleGenAI({ 
-  apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY || ''
+  apiKey: process.env.GEMINI_API_KEY || ''
 });
 
 export default function ChatFlowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [mermaidChart, setMermaidChart] = useState<string>("");
   const [messages, setMessages] = useState<{role: 'user' | 'bot', text: string}[]>([{
     role: 'bot', text: "Hello! I'm Yui. Ask me how I handle specific travel disruptions, or click one of the suggestions below to see my logic in action."
   }]);
@@ -66,8 +58,7 @@ export default function ChatFlowCanvas() {
     playClick();
     
     // Clear graph
-    setNodes([]);
-    setEdges([]);
+    setMermaidChart("");
     
     // Add User Message
     setMessages(prev => [...prev, { role: 'user', text: query }]);
@@ -82,20 +73,13 @@ The user asks: "${query}"
 Respond with a JSON object containing EXACTLY this structure:
 {
   "reply": "A concise paragraph explaining how you (Yui AI) detect and autonomously resolve this issue.",
-  "nodes": [
-    { "id": "1", "type": "logic", "position": { "x": 50, "y": 100 }, "data": { "label": "Short Action Description", "type": "trigger" } },
-    { "id": "2", "type": "logic", "position": { "x": 300, "y": 100 }, "data": { "label": "Next Step", "type": "action" } }
-  ],
-  "edges": [
-    { "id": "e1-2", "source": "1", "target": "2", "animated": true, "style": { "stroke": "rgba(255,255,255,0.3)", "strokeWidth": 2 } }
-  ]
+  "mermaid": "graph LR\\n  A[Short Action Description] --> B[Next Step]\\n  B --> C[Final Step]"
 }
 
-Rules for the nodes:
-- "trigger" type should be used for the initial problem detection.
-- "action" type should be used for AI reasoning or actions taken (like holding a seat).
-- "success" type should be used for the final resolution node.
-- Keep the x and y coordinates flowing roughly from left to right (e.g. x: 50, then x: 300, etc.).
+Rules for the mermaid property:
+- Use standard mermaid js flowchart syntax with "graph LR" (left to right).
+- Include simple nodes and arrows. Example: A[Problem Detected] --> B[Holding Seat]
+- Escape all newline characters with "\\n" so the result remains valid JSON!
 - ONLY RETURN VALID JSON. Do not use markdown backticks around the json.
       `;
 
@@ -114,21 +98,12 @@ Rules for the nodes:
       playSuccess();
       setMessages(prev => [...prev, { role: 'bot', text: parsedData.reply || "I simulated the resolution path on the canvas." }]);
       
-      // Animate Nodes appearing one by one
-      if (parsedData.nodes && Array.isArray(parsedData.nodes)) {
-        parsedData.nodes.forEach((node: any, idx: number) => {
-          setTimeout(() => {
-            playPop();
-            setNodes((nds) => [...nds, node]);
-          }, idx * 500 + 400); // Stagger introduction
-        });
-
-        // Introduce edges slightly after nodes
-        if (parsedData.edges && Array.isArray(parsedData.edges)) {
-          setTimeout(() => {
-            setEdges(parsedData.edges);
-          }, parsedData.nodes.length * 500 + 800);
-        }
+      // Render mermaid chart
+      if (parsedData.mermaid) {
+        setTimeout(() => {
+          playPop();
+          setMermaidChart(parsedData.mermaid);
+        }, 500); // slight delay after response appears
       }
 
     } catch (error) {
@@ -235,27 +210,15 @@ Rules for the nodes:
             </div>
           </div>
 
-          {/* Right Pane: React Flow Canvas */}
+          {/* Right Pane: Mermaid Flow Canvas */}
           <div className="col-span-1 lg:col-span-8 bg-[#0a0a0a] relative h-full min-h-[400px]">
-            {nodes.length === 0 && (
+            {!mermaidChart ? (
               <div className="absolute inset-0 flex items-center justify-center text-secondary/30 pointer-events-none z-10">
                 <span className="font-mono text-sm tracking-wider">Awaiting query to build logic flow...</span>
               </div>
+            ) : (
+              <MermaidGraph chart={mermaidChart} />
             )}
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              fitView
-              panOnScroll={true}
-              zoomOnScroll={false}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background color="#222" gap={24} size={1} />
-              <Controls className="bg-surface border-white/10 fill-white" showInteractive={false} />
-            </ReactFlow>
           </div>
 
         </div>
