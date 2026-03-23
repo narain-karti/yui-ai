@@ -11,8 +11,9 @@ const MermaidGraph = ({ chart }: { chart: string }) => {
   const ref = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (ref.current && chart) {
-      mermaid.render('mermaid-svg-' + Math.random().toString(36).substring(7), chart)
+    const cleanChart = chart.replace(/```mermaid\n?/gi, '').replace(/```\n?/g, '').trim();
+    if (ref.current && cleanChart) {
+      mermaid.render('mermaid-svg-' + Math.random().toString(36).substring(7), cleanChart)
         .then(({ svg }) => {
           if (ref.current) ref.current.innerHTML = svg;
         })

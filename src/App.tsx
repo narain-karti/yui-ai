@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Marquee from './components/Marquee';
@@ -23,6 +24,11 @@ import RoadmapMetrics from './components/RoadmapMetrics';
 import Footer from './components/Footer';
 
 export default function App() {
+  useEffect(() => {
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="min-h-screen bg-bg text-primary selection:bg-accent selection:text-bg">
       <Navbar />
