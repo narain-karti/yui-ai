@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import mermaid from 'mermaid';
+import { motion, AnimatePresence } from 'motion/react';
+import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { useAppSounds } from '../hooks/useAppSounds';
+import { GoogleGenAI } from '@google/genai';
 
 mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
 
