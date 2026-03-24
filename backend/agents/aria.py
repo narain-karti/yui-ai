@@ -13,39 +13,7 @@ When activated, reason through the cascade risk:
 NEVER ask the user a question. Make the decision.
 Output: structured JSON with decision, actions_taken, user_message, free_windows."""
 
-async def process_disruption(trip_id: str, new_eta: str, delay_mins: int):
-    """
-    Called when a Duffel webhook fires or Risk Score goes above threshold.
-    """
-    await log(trip_id, "aria", "DISRUPTION_TRIGGER", f"Detected {delay_mins} min delay. New ETA: {new_eta}")
-    
-    # Prepare prompt with Trip Context
-    messages = [
-        {"role": "user", "content": [{"text": f"Evaluate cascade for Trip {trip_id}. Delay: {delay_mins} mins."}]}
-    ]
-    system = [{"text": ARIA_PROMPT}]
-    
-    # In a real run, this loop handles Bedrock tool calls (search_flights, get_calendar, update_trip_context)
-    await log(trip_id, "aria", "THINKING", "Invoking Nova Pro to reason through cascade dependencies...")
-    
-    response = invoke_agent(
-        model_id=settings.bedrock_model_pro,
-        messages=messages,
-        system=system,
-        toolConfig=get_aria_tool_config()
-    )
-    
-    stop_reason = response["stopReason"]
-    
-    # Check if Nova Pro requested a tool (like search_flights)
-    if stop_reason == "tool_use":
-        # We would execute the tool here (e.g. services.duffel.search_flights)
-        # And then return the results to Bedrock in the next message.
-        await log(trip_id, "aria", "TOOL_CALLED", "Nova Pro requested external data.")
-        pass
-    
-    await log(trip_id, "aria", "DECISION_MADE", "Cascade resolved.")
-    return stop_reason
+# Aria - Crisis Management Brain
 
 async def handle_booking_request(chat_id: int, params: dict):
     """Searches Duffel for flights and presents the top option to the user"""
@@ -192,10 +160,19 @@ async def process_disruption(trip_id: str, new_eta: str, delay_mins: int, chat_i
     alert = f"🚨 **Travel Alert!**\n\nYour flight (ID: `{trip_id}`) is experiencing a delay of **{delay_mins} minutes**. New ETA: **{new_eta}**.\n\nI'm already searching for the best alternative flights for you. Give me one moment..."
     await send_message(target_chat_id, alert)
     
-    from agents.aria import search_flights
+    from services.duffel import search_flights
     try:
+        # Debug: check what's being sent
+        await log("system", "aria", "DEBUG", "Starting autonomous search for LHR->JFK on 2026-04-30")
+        
         alt_flights = await search_flights("LHR", "JFK", "2026-04-30")
+        
+        # Debug: check what's being received
+        if "errors" in alt_flights:
+            await log("system", "aria", "SEARCH_FAIL", f"Duffel returned errors: {json.dumps(alt_flights['errors'])}")
+        
         offers = alt_flights.get("data", {}).get("offers", [])
+        await log("system", "aria", "DEBUG", f"Found {len(offers)} offers.")
         
         if offers:
             top = offers[0]
@@ -205,9 +182,9 @@ async def process_disruption(trip_id: str, new_eta: str, delay_mins: int, chat_i
             msg = f"✅ **Alternative Found!**\n\nI've found a substitute flight that gets you there with minimal delay.\n\n"
             msg += f"Price: **{price} USD**\n\nWould you like me to use your balance to rebook this now?"
             
-            from services.telegram_client import send_message_with_keyboard
-            keyboard = [[{"text": f"🔄 Rebook for {price} USD", "callback_data": f"rebook_{offer_id}"}]]
-            await send_message_with_keyboard(target_chat_id, msg, keyboard)
+            from services.telegram_client import send_message
+            keyboard = {"inline_keyboard": [[{"text": f"🔄 Rebook for {price} USD", "callback_data": f"rebook_{offer_id}"}]]}
+            await send_message(target_chat_id, msg, keyboard)
             
             await log("system", "aria", "AUTO_RESOLUTION", f"Sent rebook option {offer_id} to user.")
         else:
