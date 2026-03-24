@@ -178,6 +178,43 @@ async def handle_disruption(chat_id: int, query: str):
     advice = response["output"]["message"]["content"][0]["text"]
     await send_message(chat_id, f"🛡️ **Disruption Advice:**\n\n{advice}")
 
+async def process_disruption(trip_id: str, new_eta: str, delay_mins: int, chat_id: int = None):
+    """
+    Reactive handler for Duffel webhooks. Proactively notifies the user.
+    """
+    from services.telegram_client import send_message
+    from core.logger import log
+    
+    target_chat_id = chat_id or 6227536917 
+    
+    await log("system", "aria", "DISRUPTION_DETECTED", f"Autonomous response triggered for {trip_id}. Delay: {delay_mins}m")
+    
+    alert = f"🚨 **Travel Alert!**\n\nYour flight (ID: `{trip_id}`) is experiencing a delay of **{delay_mins} minutes**. New ETA: **{new_eta}**.\n\nI'm already searching for the best alternative flights for you. Give me one moment..."
+    await send_message(target_chat_id, alert)
+    
+    from agents.aria import search_flights
+    try:
+        alt_flights = await search_flights("LHR", "JFK", "2026-04-30")
+        offers = alt_flights.get("data", {}).get("offers", [])
+        
+        if offers:
+            top = offers[0]
+            price = top.get("total_amount")
+            offer_id = top.get("id")
+            
+            msg = f"✅ **Alternative Found!**\n\nI've found a substitute flight that gets you there with minimal delay.\n\n"
+            msg += f"Price: **{price} USD**\n\nWould you like me to use your balance to rebook this now?"
+            
+            from services.telegram_client import send_message_with_keyboard
+            keyboard = [[{"text": f"🔄 Rebook for {price} USD", "callback_data": f"rebook_{offer_id}"}]]
+            await send_message_with_keyboard(target_chat_id, msg, keyboard)
+            
+            await log("system", "aria", "AUTO_RESOLUTION", f"Sent rebook option {offer_id} to user.")
+        else:
+             await send_message(target_chat_id, "I couldn't find a better alternative flight right now, but I'll keep monitoring it for you!")
+    except Exception as e:
+        await log("system", "aria", "ERROR", str(e))
+
 async def process_callback_action(chat_id: int, action_data: str, user: dict = None):
     """Handles an inline button tap from Telegram"""
     from services.telegram_client import send_message
@@ -188,11 +225,9 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
     
     if action_data.startswith("rebook_"):
         offer_id = action_data.replace("rebook_", "")
-        
         await send_message(chat_id, "🔄 Executing your booking...")
         
         try:
-            # Fetch full offer details (needed because Telegram limit is 64 chars)
             offer_res = await get_offer(offer_id)
             if "errors" in offer_res:
                 await send_message(chat_id, "❌ Offer expired. Please search again.")
@@ -204,11 +239,9 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
             passengers = offer_data.get("passengers", [])
             pas_id = passengers[0].get("id") if passengers else ""
             
-            # Extract real names from Telegram user object
             first_name = user.get("first_name", "Traveler") if user else "John"
             last_name = user.get("last_name", "User") if user else "Appleseed"
             
-            # Duffel v2 requires given_name, family_name, AND the exact passenger ID from the offer
             passenger = {
                 "id": pas_id,
                 "type": "adult",
@@ -225,16 +258,14 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
             if "errors" in results:
                 error_msg = results["errors"][0].get("message", "Validation failed")
                 await log("system", "aria", "BOOK_ERROR", f"Duffel Error: {error_msg}")
-                
-                # Check for stale/unavailable offer error specifically
                 if "select another offer" in error_msg.lower():
-                    await send_message(chat_id, "✈️ **Update:** The airline just changed the price or availability for this flight. Please search again to get the latest options! (This happens when seats sell out or prices update).")
+                    await send_message(chat_id, "✈️ **Update:** The airline just changed the price or availability for this flight. Please search again to get the latest options!")
                 else:
                     await send_message(chat_id, f"❌ booking failed: {error_msg}")
                 return
                 
             order_id = results.get("data", {}).get("id")
-            await send_message(chat_id, f"✅ **Success!** Your flight is booked.\nOrder ID: `{order_id}`\n\nYou can see this order in your Duffel Dashboard.")
+            await send_message(chat_id, f"✅ **Success!** Your flight is booked.\nOrder ID: `{order_id}`")
         except Exception as e:
             await log("system", "aria", "BOOK_ERROR", str(e))
             await send_message(chat_id, "❌ Sorry, I failed to complete the booking. Please try again.")
