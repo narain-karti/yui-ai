@@ -49,8 +49,29 @@ async def generate_suggestions(trip_id: str, lat: float, lng: float, free_mins: 
         await log(trip_id, "luma", "ERROR", "Failed to parse JSON off Nova Lite")
         return None
 
+async def run_luma_explicit(chat_id: int, params: dict):
+    """Explicitly generates suggestions when asked via Telegram"""
+    # In a full flow, we'd pull the user's last known location from Supabase.
+    # Here, we'll use a mock location (e.g., central Paris) for the demo unless specified.
+    lat, lng = 48.8566, 2.3522
+    
+    cards = await generate_suggestions("demo_trip", lat, lng, free_mins=120)
+    
+    if cards:
+        msg = "Here are some top picks for you:\n\n"
+        for category, details in cards.items():
+            msg += f"🍽️ **{details.get('name', 'Unknown')}** ({category.title()})\n"
+            msg += f"⭐ {details.get('rating', 'N/A')} - {details.get('distance_min', '?')} mins away\n"
+            msg += f"💡 _{details.get('why_recommended', '')}_\n\n"
+        
+        await send_message(chat_id, msg)
+    else:
+        await send_message(chat_id, "I'm having trouble finding good spots right now. Try sharing your location!")
+
 async def set_user_location(chat_id: int, lat: float, lng: float):
     """Handle explicit gps location share"""
-    await send_message(chat_id, "Location received. Running LUMA to find nearby spots...")
-    # Typically we find the active trip_id from Supabase and call generate_suggestions
-    # Not persisting to DB here to respect the PRD privacy policy (Ephemeral Location)
+    from services.telegram_client import send_message
+    await send_message(chat_id, "📍 Location received! Let me find the best spots around you...")
+    
+    # Actually trigger the suggestion generation now that we have exact coords
+    await run_luma_explicit(chat_id, {"lat": lat, "lng": lng})

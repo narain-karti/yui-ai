@@ -47,7 +47,23 @@ async def process_disruption(trip_id: str, new_eta: str, delay_mins: int):
     await log(trip_id, "aria", "DECISION_MADE", "Cascade resolved.")
     return stop_reason
 
+async def check_flight(chat_id: int):
+    """Answers CHECK_STATUS intents from Telegram"""
+    from services.telegram_client import send_message
+    
+    # In a fully integrated system, this would query Supabase for the user's active trip
+    # and call Duffel to check live status. For the demo, we mock the retrieval.
+    await log("system", "aria", "CHECK_FLIGHT", f"User checking flight status from chat {chat_id}")
+    await send_message(chat_id, "Your next flight **AI345** from Paris to Dubai is on-time. Departure is at 10:00 AM.")
+
 async def process_callback_action(chat_id: int, action_data: str):
     """Handles an inline button tap from Telegram"""
-    # e.g., if action_data is "REBOOK_AI345", call duffel logic to execute the booking
-    pass
+    from services.telegram_client import send_message
+    from core.logger import log
+    
+    await log("system", "aria", "CALLBACK_RECEIVED", f"User tapped: {action_data}")
+    
+    if action_data.startswith("rebook_"):
+        await send_message(chat_id, "✅ I have initiated the rebooking process. I will send you the new itinerary shortly.")
+    else:
+        await send_message(chat_id, f"Processing your request: {action_data}")

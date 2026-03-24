@@ -9,12 +9,15 @@ router = APIRouter(tags=["Telegram Webhook"])
 async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: str = Header(None)):
     """Receives updates directly from Telegram servers"""
     
-    # Simple explicit secret checking
-    if x_telegram_bot_api_secret_token != settings.telegram_bot_token:
-        # In prod you'd use a dedicated secret string, but bot token works as a baseline
-        # Let's log and forbid if completely unauthorized
+    # Determine the expected secret
+    expected_secret = settings.telegram_webhook_secret or settings.telegram_bot_token
+    # Telegram requires secret_token to be alphanumeric + _ or -
+    expected_secret = "".join(c for c in expected_secret if c.isalnum() or c in "_-")
+    
+    if x_telegram_bot_api_secret_token != expected_secret:
         logging.warning("Unauthorized access to Telegram webhook")
-        # raise HTTPException(status_code=403, detail="Unauthorized")
+        # Ensure it actually raises an exception in production
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     try:
         update_data = await request.json()
