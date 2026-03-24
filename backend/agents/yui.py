@@ -4,12 +4,22 @@ from core.bedrock import invoke_agent
 from core.tools import get_yui_tool_config
 from services.telegram_client import send_message, send_dashboard_button
 
-YUI_PROMPT = """You are Yui, the friendly interface of an autonomous travel agent system. 
-Your ONLY job is to classify the user's intent and route it correctly. 
-Never perform complex reasoning. Never look up flights. Never suggest places. 
-Output a JSON object: { "intent": "string", "confidence": 0.0, "params": {} } 
-Valid intents: BOOK_FLIGHT, CHECK_STATUS, DISRUPTION_ACK, SUGGEST_PLACES, WEB_QUESTION, VIEW_ITINERARY, PREFERENCES, GENERAL_CHAT.
-Be brief in any conversational reply. Your tone is warm and efficient."""
+YUI_PROMPT = """You are a specialized JSON router for an AI travel agent.
+Current Date: 2026-03-24. 
+
+CRITICAL: Output ONLY a valid JSON object. Do not include thinking tags. Do not include introductory text. 
+
+Intent Rules:
+- BOOK_FLIGHT: For searching or booking flights. Use 3-letter IATA codes (Chennai -> MAA). Use 2026 for dates.
+- CHECK_STATUS: For checking existing flight delays.
+- SUGGEST_PLACES: For venue/dining/work suggestions.
+- GENERAL_CHAT: For everything else.
+
+JSON Schema: { "intent": "string", "confidence": float, "params": { "origin": "string", "destination": "string", "departure_date": "YYYY-MM-DD" } }
+
+Example:
+{"intent": "BOOK_FLIGHT", "confidence": 1.0, "params": {"origin": "MAA", "destination": "BOM", "departure_date": "2026-04-03"}}
+"""
 
 async def classify_intent(text: str) -> dict:
     """Uses Nova Lite to classify the incoming user message"""
@@ -26,11 +36,29 @@ async def classify_intent(text: str) -> dict:
     # Simple extraction of the first text block, assuming JSON is safely returned
     # based on the prompt. Need stricter parsing in production.
     output_text = response["output"]["message"]["content"][0]["text"]
+    print(f"\n--- YUI AI OUTPUT ---\n{output_text}\n--- END YUI OUTPUT ---\n")
+    
+    from core.logger import log
+    import asyncio
+    
     try:
-        # Fallback if Nova Lite includes markdown codeblocks:
-        clean_json = output_text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
-    except:
+        # Fallback if Nova Lite includes markdown codeblocks or extra text:
+        start = output_text.find('{')
+        end = output_text.rfind('}') + 1
+        
+        if start != -1 and end != 0:
+            clean_json = output_text[start:end]
+            classification = json.loads(clean_json)
+            # Fire and forget a log event for visibility
+            asyncio.create_task(log("system", "yui", "CLASSIFIED", f"Intent: {classification.get('intent')}"))
+            return classification
+        else:
+            print("❌ No JSON brackets found in output!")
+            return {"intent": "GENERAL_CHAT", "confidence": 1.0, "params": {}}
+            
+    except Exception as e:
+        print(f"❌ JSON PARSE ERROR: {str(e)}")
+        asyncio.create_task(log("system", "yui", "PARSE_ERROR", f"Failed to parse: {output_text} | Error: {str(e)}"))
         return {"intent": "GENERAL_CHAT", "confidence": 1.0, "params": {}}
 
 async def process_telegram_intent(chat_id: int, text: str):

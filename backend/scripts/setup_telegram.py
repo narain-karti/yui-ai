@@ -15,7 +15,7 @@ async def set_webhook(url: str):
     print(f"Setting webhook to: {url}")
     
     # Check if a specific webhook secret is defined, else use bot token (less secure, but a fallback)
-    secret_token = getattr(settings, 'telegram_webhook_secret', settings.telegram_bot_token)
+    secret_token = settings.telegram_webhook_secret or settings.telegram_bot_token
     
     # Telegram requires secret_token to be [a-zA-Z0-9_-]{1,256}
     # Bot tokens have a colon, which is invalid for secret_token. 

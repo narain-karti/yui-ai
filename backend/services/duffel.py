@@ -29,15 +29,21 @@ async def search_flights(origin: str, destination: str, departure_date: str) -> 
             json=payload,
             headers=HEADERS
         )
-        response.raise_for_status()
         return response.json()
 
-async def execute_booking(offer_id: str, passenger_details: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute a sandbox booking on Duffel"""
+async def execute_booking(offer_id: str, passenger_details: Dict[str, Any], amount: str, currency: str) -> Dict[str, Any]:
+    """Execute a real booking on Duffel (requires payment block in v2)"""
     payload = {
         "data": {
             "selected_offers": [offer_id],
-            "passengers": [passenger_details]
+            "passengers": [passenger_details],
+            "payments": [
+                {
+                    "type": "balance",
+                    "amount": amount,
+                    "currency": currency
+                }
+            ]
         }
     }
     async with httpx.AsyncClient() as client:
@@ -46,7 +52,7 @@ async def execute_booking(offer_id: str, passenger_details: Dict[str, Any]) -> D
             json=payload, 
             headers=HEADERS
         )
-        response.raise_for_status()
+        # Return pure JSON so Aria can handle 422 errors gracefully
         return response.json()
 
 async def get_order_status(order_id: str) -> Dict[str, Any]:

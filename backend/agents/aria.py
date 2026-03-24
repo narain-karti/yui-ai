@@ -52,14 +52,28 @@ async def handle_booking_request(chat_id: int, params: dict):
     from services.duffel import search_flights
     from services.telegram_client import send_message
     
-    origin = params.get("origin", "LHR") # Default to London for demo if not parsed
-    destination = params.get("destination", "DXB") # Default to Dubai
-    date = params.get("date", "2025-06-15") # Default date
+    # Clean and validate parameters, Duffel requires precise 3-letter IATA codes and YYYY-MM-DD
+    origin = str(params.get("origin", "")).upper().strip()
+    destination = str(params.get("destination", "")).upper().strip()
+    date = str(params.get("departure_date", "")).strip()
+    
+    if len(origin) != 3:
+        origin = "MAA"
+    if len(destination) != 3:
+        destination = "BOM"
+    if len(date) != 10 or "-" not in date:
+        date = "2026-04-15" # Default to a future 2026 date
     
     await log("system", "aria", "SEARCH_START", f"Searching {origin} -> {destination} on {date}")
     
     try:
         results = await search_flights(origin, destination, date)
+        
+        # Duffel errors check (e.g. 400 Bad Request if something is wrong)
+        if "errors" in results:
+            await send_message(chat_id, f"Duffel API returned an error: {results['errors'][0].get('message')}")
+            return
+            
         offers = results.get("data", {}).get("offers", [])
         
         if not offers:
@@ -72,14 +86,18 @@ async def handle_booking_request(chat_id: int, params: dict):
         currency = top_offer.get("total_currency")
         offer_id = top_offer.get("id")
         
+        # Duffel v2 requires the specific passenger ID from the offer response
+        passengers_list = top_offer.get("passengers", [])
+        passenger_id = passengers_list[0].get("id") if passengers_list else ""
+        
         msg = f"✈️ **Top Flight Found:**\n\n"
         msg += f"From: **{origin}** To: **{destination}**\n"
         msg += f"Price: **{price} {currency}**\n\n"
-        msg += "Would you like me to book this for you in the sandbox?"
+        msg += "Would you like me to book this for you?"
         
         reply_markup = {
             "inline_keyboard": [[
-                {"text": f"Book for {price} {currency} ✅", "callback_data": f"rebook_{offer_id}"}
+                {"text": f"Book for {price} {currency} ✅", "callback_data": f"rebook_{offer_id}|{price}|{currency}|{passenger_id}"}
             ]]
         }
         
@@ -87,7 +105,10 @@ async def handle_booking_request(chat_id: int, params: dict):
         
     except Exception as e:
         await log("system", "aria", "SEARCH_ERROR", str(e))
-        await send_message(chat_id, "I encountered an error while searching for flights. Please try again later.")
+        # Log the detailed httpx error response text if available for easier debugging
+        err_detail = getattr(getattr(e, "response", None), "text", str(e))
+        await log("system", "aria", "SEARCH_ERROR", err_detail)
+        await send_message(chat_id, "I encountered an error while searching for flights (possibly due to an API restriction).")
 
 async def check_flight(chat_id: int):
     """Answers CHECK_STATUS intents from Telegram"""
@@ -99,7 +120,7 @@ async def check_flight(chat_id: int):
     await log("system", "aria", "CHECK_FLIGHT", f"User checking flight status from chat {chat_id}")
     await send_message(chat_id, "Checking your last booking... Your next flight **AI345** (Order: ord_123) is currently **On Time**.")
 
-async def process_callback_action(chat_id: int, action_data: str):
+async def process_callback_action(chat_id: int, action_data: str, user: dict = None):
     """Handles an inline button tap from Telegram"""
     from services.telegram_client import send_message
     from services.duffel import execute_booking
@@ -108,27 +129,43 @@ async def process_callback_action(chat_id: int, action_data: str):
     await log("system", "aria", "CALLBACK_RECEIVED", f"User tapped: {action_data}")
     
     if action_data.startswith("rebook_"):
-        offer_id = action_data.replace("rebook_", "")
-        await send_message(chat_id, "🔄 Executing your sandbox booking...")
+        parts = action_data.replace("rebook_", "").split("|")
+        offer_id = parts[0]
+        price = parts[1] if len(parts) > 1 else "10.00"
+        currency = parts[2] if len(parts) > 2 else "USD"
+        pas_id = parts[3] if len(parts) > 3 else ""
+        
+        await send_message(chat_id, "🔄 Executing your booking...")
         
         try:
-            # Mock passenger for sandbox
+            # Extract real names from Telegram user object
+            first_name = user.get("first_name", "Traveler") if user else "John"
+            last_name = user.get("last_name", "User") if user else "Appleseed"
+            
+            # Duffel v2 requires given_name, family_name, AND the exact passenger ID from the offer
             passenger = {
+                "id": pas_id,
                 "type": "adult",
                 "title": "mr",
-                "first_name": "John",
-                "last_name": "Appleseed",
+                "given_name": first_name,
+                "family_name": last_name,
                 "gender": "m",
                 "email": "john@example.com",
                 "phone_number": "+447700900000",
                 "born_on": "1990-01-01"
             }
-            order = await execute_booking(offer_id, passenger)
-            order_id = order.get("data", {}).get("id")
+            results = await execute_booking(offer_id, passenger, price, currency)
             
-            await send_message(chat_id, f"✅ **Success!** Your flight is booked.\nOrder ID: `{order_id}`\n\nYou can see this order in your Duffel Sandbox Dashboard.")
+            if "errors" in results:
+                error_msg = results["errors"][0].get("message", "Validation failed")
+                await log("system", "aria", "BOOK_ERROR", f"Duffel Error: {error_msg}")
+                await send_message(chat_id, f"❌ booking failed: {error_msg}")
+                return
+                
+            order_id = results.get("data", {}).get("id")
+            await send_message(chat_id, f"✅ **Success!** Your flight is booked.\nOrder ID: `{order_id}`\n\nYou can see this order in your Duffel Dashboard.")
         except Exception as e:
             await log("system", "aria", "BOOK_ERROR", str(e))
-            await send_message(chat_id, "❌ Sorry, I failed to complete the booking. It might be an expired offer.")
+            await send_message(chat_id, "❌ Sorry, I failed to complete the booking. Please try again.")
     else:
         await send_message(chat_id, f"Processing: {action_data}")

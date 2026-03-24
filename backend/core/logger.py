@@ -7,6 +7,9 @@ async def log(trip_id: str, agent: str, action: str, detail: str):
     Supabase Realtime picks it up and streams directly to the dashboard.
     """
     try:
+        # Also print to terminal for immediate visibility during development
+        print(f"[{agent.upper()}] {action}: {detail}")
+        
         data = {
             "trip_id": trip_id,
             "agent": agent,

@@ -22,6 +22,11 @@ app.include_router(telegram_router)
 app.include_router(duffel_router)
 app.include_router(frontend_router)
 
+@app.get("/ping")
+async def ping():
+    """Health check endpoint for Cloudflare tunnels"""
+    return {"status": "ok"}
+
 @app.on_event("startup")
 async def startup_event():
     # Start the background APScheduler

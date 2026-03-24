@@ -34,6 +34,7 @@ async def handle_update(update: Dict[str, Any]):
         query = update["callback_query"]
         chat_id = query["message"]["chat"]["id"]
         data = query["data"]
+        user = query.get("from")
         # e.g., data = "rebook_offer_xyz123"
         from agents.aria import process_callback_action
-        await process_callback_action(chat_id, data)
+        await process_callback_action(chat_id, data, user)
