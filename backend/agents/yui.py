@@ -51,11 +51,15 @@ async def process_telegram_intent(chat_id: int, text: str):
         await send_message(chat_id, "Looking up some places for you...")
         from agents.luma import run_luma_explicit
         await run_luma_explicit(chat_id, classification.get("params", {}))
-    elif intent in ["BOOK_FLIGHT", "CHECK_STATUS", "DISRUPTION_ACK"]:
-        await send_message(chat_id, "Let me check on your flight...")
+    elif intent == "BOOK_FLIGHT":
+        await send_message(chat_id, "Searching for the best flight options...")
+        from agents.aria import handle_booking_request
+        await handle_booking_request(chat_id, classification.get("params", {}))
+    elif intent == "CHECK_STATUS":
+        await send_message(chat_id, "Let me check on your flight status...")
         from agents.aria import check_flight
         await check_flight(chat_id)
     elif intent == "GENERAL_CHAT":
         await send_message(chat_id, "I'm a bot! I can look up flights, suggest venues, and handle disruptions.")
     else:
-        await send_message(chat_id, f"Intent classified as: {intent}")
+        await send_message(chat_id, f"Intent classified: {intent}. How can I assist further?")
