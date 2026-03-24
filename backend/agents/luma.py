@@ -51,10 +51,18 @@ async def generate_suggestions(trip_id: str, lat: float, lng: float, free_mins: 
 
 async def run_luma_explicit(chat_id: int, params: dict):
     """Explicitly generates suggestions when asked via Telegram"""
-    # In a full flow, we'd pull the user's last known location from Supabase.
-    # Here, we'll use a mock location (e.g., central Paris) for the demo unless specified.
-    lat, lng = 48.8566, 2.3522
+    # 1. Determine location coords (lat, lng)
+    # Default to Paris for the demo, but check if a destination was provided
+    city = params.get("destination") or params.get("query")
+    lat, lng = 48.8566, 2.3522 # Paris
     
+    if city and "london" in city.lower():
+        lat, lng = 51.5074, -0.1278
+    elif city and "chennai" in city.lower():
+        lat, lng = 13.0827, 80.2707
+    elif city and "mumbai" in city.lower():
+        lat, lng = 19.0760, 72.8777
+        
     cards = await generate_suggestions("demo_trip", lat, lng, free_mins=120)
     
     if cards:
