@@ -97,7 +97,7 @@ async def handle_booking_request(chat_id: int, params: dict):
         
         reply_markup = {
             "inline_keyboard": [[
-                {"text": f"Book for {price} {currency} ✅", "callback_data": f"rebook_{offer_id}|{price}|{currency}|{passenger_id}"}
+                {"text": f"Book for {price} {currency} ✅", "callback_data": f"rebook_{offer_id}"}
             ]]
         }
         
@@ -123,21 +123,29 @@ async def check_flight(chat_id: int):
 async def process_callback_action(chat_id: int, action_data: str, user: dict = None):
     """Handles an inline button tap from Telegram"""
     from services.telegram_client import send_message
-    from services.duffel import execute_booking
+    from services.duffel import execute_booking, get_offer
     from core.logger import log
     
     await log("system", "aria", "CALLBACK_RECEIVED", f"User tapped: {action_data}")
     
     if action_data.startswith("rebook_"):
-        parts = action_data.replace("rebook_", "").split("|")
-        offer_id = parts[0]
-        price = parts[1] if len(parts) > 1 else "10.00"
-        currency = parts[2] if len(parts) > 2 else "USD"
-        pas_id = parts[3] if len(parts) > 3 else ""
+        offer_id = action_data.replace("rebook_", "")
         
         await send_message(chat_id, "🔄 Executing your booking...")
         
         try:
+            # Fetch full offer details (needed because Telegram limit is 64 chars)
+            offer_res = await get_offer(offer_id)
+            if "errors" in offer_res:
+                await send_message(chat_id, "❌ Offer expired. Please search again.")
+                return
+            
+            offer_data = offer_res.get("data", {})
+            price = offer_data.get("total_amount")
+            currency = offer_data.get("total_currency")
+            passengers = offer_data.get("passengers", [])
+            pas_id = passengers[0].get("id") if passengers else ""
+            
             # Extract real names from Telegram user object
             first_name = user.get("first_name", "Traveler") if user else "John"
             last_name = user.get("last_name", "User") if user else "Appleseed"

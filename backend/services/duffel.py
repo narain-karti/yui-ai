@@ -31,6 +31,15 @@ async def search_flights(origin: str, destination: str, departure_date: str) -> 
         )
         return response.json()
 
+async def get_offer(offer_id: str) -> Dict[str, Any]:
+    """Fetch full details for a specific offer"""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{DUFFEL_BASE_URL}/air/offers/{offer_id}",
+            headers=HEADERS
+        )
+        return response.json()
+
 async def execute_booking(offer_id: str, passenger_details: Dict[str, Any], amount: str, currency: str) -> Dict[str, Any]:
     """Execute a real booking on Duffel (requires payment block in v2)"""
     payload = {
