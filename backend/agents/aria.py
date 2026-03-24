@@ -158,8 +158,8 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
                 "given_name": first_name,
                 "family_name": last_name,
                 "gender": "m",
-                "email": "john@example.com",
-                "phone_number": "+447700900000",
+                "email": "traveler@example.com",
+                "phone_number": "+919876543210",
                 "born_on": "1990-01-01"
             }
             results = await execute_booking(offer_id, passenger, price, currency)
@@ -167,7 +167,12 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
             if "errors" in results:
                 error_msg = results["errors"][0].get("message", "Validation failed")
                 await log("system", "aria", "BOOK_ERROR", f"Duffel Error: {error_msg}")
-                await send_message(chat_id, f"❌ booking failed: {error_msg}")
+                
+                # Check for stale/unavailable offer error specifically
+                if "select another offer" in error_msg.lower():
+                    await send_message(chat_id, "✈️ **Update:** The airline just changed the price or availability for this flight. Please search again to get the latest options! (This happens when seats sell out or prices update).")
+                else:
+                    await send_message(chat_id, f"❌ booking failed: {error_msg}")
                 return
                 
             order_id = results.get("data", {}).get("id")

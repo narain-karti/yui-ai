@@ -49,20 +49,23 @@ async def execute_booking(offer_id: str, passenger_details: Dict[str, Any], amou
             "payments": [
                 {
                     "type": "balance",
-                    "amount": amount,
+                    "amount": str(amount),
                     "currency": currency
                 }
             ]
         }
     }
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{DUFFEL_BASE_URL}/air/orders", 
-            json=payload, 
-            headers=HEADERS
-        )
-        # Return pure JSON so Aria can handle 422 errors gracefully
-        return response.json()
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{DUFFEL_BASE_URL}/air/orders", 
+                json=payload, 
+                headers=HEADERS
+            )
+            return response.json()
+    except Exception as e:
+        return {"errors": [{"message": f"Network Error: {str(e)}"}]}
 
 async def get_order_status(order_id: str) -> Dict[str, Any]:
     """Fetch the status of an existing order"""
