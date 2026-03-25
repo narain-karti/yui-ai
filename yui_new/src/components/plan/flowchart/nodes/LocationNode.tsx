@@ -1,65 +1,98 @@
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { MapPin, Building, Briefcase, Coffee } from 'lucide-react';
+import { MapPin, Building, Briefcase, Coffee, Info, CloudRain, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
 
+const SUBTYPE_CONFIG: Record<string, any> = {
+  airport: { icon: MapPin, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/50', glow: 'shadow-indigo-500/20' },
+  hotel: { icon: Building, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/50', glow: 'shadow-emerald-500/20' },
+  venue: { icon: Briefcase, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/50', glow: 'shadow-rose-500/20' },
+  restaurant: { icon: Coffee, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/50', glow: 'shadow-amber-500/20' },
+};
+
 export default memo(function LocationNode({ data, isConnectable }: any) {
   const [isHovered, setIsHovered] = useState(false);
-
-  const config = {
-    airport: { icon: MapPin, color: 'bg-[#185FA5]', border: 'border-[#185FA5]', shadow: 'shadow-[#185FA5]/20' },
-    hotel: { icon: Building, color: 'bg-[#0F6E56]', border: 'border-[#0F6E56]', shadow: 'shadow-[#0F6E56]/20' },
-    venue: { icon: Briefcase, color: 'bg-accent', border: 'border-accent', shadow: 'shadow-accent/20' },
-    restaurant: { icon: Coffee, color: 'bg-[#993C1D]', border: 'border-[#993C1D]', shadow: 'shadow-[#993C1D]/20' },
-  }[data.subtype as string] || { icon: MapPin, color: 'bg-accent', border: 'border-accent', shadow: 'shadow-accent/20' };
-
-  const Icon = config.icon;
+  const cfg = SUBTYPE_CONFIG[data.subtype as string] || SUBTYPE_CONFIG.venue;
+  const Icon = cfg.icon;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.5, y: 50 }}
-      animate={{ opacity: 1, scale: isHovered ? 1.1 : 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20, delay: (data.index || 0) * 0.15 }}
+      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      whileHover={{ scale: 1.05, zIndex: 50 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={clsx(
-        "relative w-48 rounded-[24px] border-2 bg-surface/80 backdrop-blur-md overflow-hidden shadow-lg transition-colors duration-300",
-        config.border, config.shadow
+        "relative min-w-[200px] rounded-3xl border bg-[#0A0A14]/90 backdrop-blur-xl transition-all duration-500",
+        cfg.border, isHovered ? cfg.glow : 'shadow-xl shadow-black/50',
+        "border-b-4"
       )}
     >
-      <Handle type="target" position={Position.Left} isConnectable={isConnectable} className="w-3 h-3 bg-white border-2 border-bg" />
+      <Handle type="target" position={Position.Left} isConnectable={isConnectable} className="!w-2 !h-2 !bg-white !border-none" />
       
+      {/* Glow Effect */}
+      {isHovered && (
+        <motion.div
+          layoutId="loc-glow"
+          className="absolute inset-0 rounded-3xl opacity-20 pointer-events-none"
+          style={{ background: `radial-gradient(circle at top right, ${cfg.accent}, transparent)` }}
+        />
+      )}
+
       {/* Header */}
-      <div className={clsx("px-3 py-2 flex items-center gap-2 text-white", config.color)}>
-        <Icon size={14} />
-        <span className="text-xs font-bold tracking-wider uppercase">{data.subtype}</span>
+      <div className="flex items-center gap-3 p-4">
+        <div className={clsx("p-2 rounded-2xl", cfg.bg)}>
+          <Icon size={18} className={cfg.color} />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-white line-clamp-1">{data.label}</h3>
+          <span className="text-[9px] font-mono tracking-[0.2em] text-white/30 uppercase">{data.subtype}</span>
+        </div>
       </div>
 
-      {/* Body */}
-      <div className="p-3 space-y-1">
-        <div className="text-sm font-bold text-white truncate">{data.label}</div>
-        <div className="text-xs text-white/60">ETA: {new Date(data.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+      {/* Preview Content */}
+      <div className="px-4 pb-4">
+        <div className="flex items-center justify-between text-[10px] text-white/50 bg-black/40 rounded-full px-3 py-1.5 border border-white/5">
+          <div className="flex items-center gap-1.5">
+            <Clock size={10} className="text-white/30" />
+            <span>ETA {data.eta || '10:00 AM'}</span>
+          </div>
+          {data.weather && <span className="font-mono text-cyan-400">{data.weather}</span>}
+        </div>
       </div>
 
-      {/* Expanded Details */}
+      {/* Expanded Details on Hover */}
       <AnimatePresence>
-        {isHovered && data.details && (
+        {isHovered && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="px-3 pb-3 border-t border-white/10 bg-black/20"
+            className="px-4 pb-4 border-t border-white/5 bg-black/20"
           >
-            <div className="text-[10px] text-white/40 uppercase tracking-wider mt-2 mb-1">Details</div>
-            <div className="text-[10px] text-white/70 bg-white/5 px-2 py-1.5 rounded leading-relaxed">
-              {data.details}
+            <div className="mt-3 space-y-3">
+              {/* Location Details */}
+              <div className="text-[10px] text-white/60 leading-relaxed bg-white/5 rounded-xl p-3 border border-white/5">
+                <div className="flex items-center gap-2 mb-2 text-white/30 font-bold uppercase tracking-widest text-[8px]">
+                   <Info size={10} /> Intelligence
+                </div>
+                {data.details || 'Personalized location insight for your journey leg.'}
+              </div>
+
+              {/* Weather Insight if available */}
+              {data.weather_insight && (
+                <div className="flex items-start gap-3 bg-cyan-500/5 rounded-xl p-3 border border-cyan-500/10">
+                  <CloudRain size={14} className="text-cyan-400 shrink-0" />
+                  <div className="text-[10px] text-cyan-100/70">{data.weather_insight}</div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Handle type="source" position={Position.Right} isConnectable={isConnectable} className="w-3 h-3 bg-white border-2 border-bg" />
+      <Handle type="source" position={Position.Right} isConnectable={isConnectable} className="!w-2 !h-2 !bg-white !border-none" />
     </motion.div>
   );
 });

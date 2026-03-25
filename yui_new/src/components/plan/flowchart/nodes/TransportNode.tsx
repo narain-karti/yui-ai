@@ -1,82 +1,138 @@
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Plane, Train, Car, Bus, AlertCircle } from 'lucide-react';
+import { Plane, Train, Car, Bus, AlertCircle, Clock, Zap, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
 
+const SUBTYPE_CONFIG: Record<string, any> = {
+  flight: { icon: Plane, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/50', glow: 'shadow-blue-500/20' },
+  train: { icon: Train, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/50', glow: 'shadow-emerald-500/20' },
+  taxi: { icon: Car, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/50', glow: 'shadow-amber-500/20' },
+  bus: { icon: Bus, color: 'text-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/50', glow: 'shadow-slate-500/20' },
+};
+
 export default memo(function TransportNode({ data, isConnectable }: any) {
   const [isHovered, setIsHovered] = useState(false);
-
-  const config = {
-    flight: { icon: Plane, color: 'bg-[#185FA5]', border: 'border-[#185FA5]', shadow: 'shadow-[#185FA5]/20' },
-    train: { icon: Train, color: 'bg-[#3B6D11]', border: 'border-[#3B6D11]', shadow: 'shadow-[#3B6D11]/20' },
-    taxi: { icon: Car, color: 'bg-[#854F0B]', border: 'border-[#854F0B]', shadow: 'shadow-[#854F0B]/20' },
-    bus: { icon: Bus, color: 'bg-[#444441]', border: 'border-[#444441]', shadow: 'shadow-[#444441]/20' },
-  }[data.subtype as string] || { icon: Car, color: 'bg-accent', border: 'border-accent', shadow: 'shadow-accent/20' };
-
-  const Icon = config.icon;
+  const cfg = SUBTYPE_CONFIG[data.subtype as string] || SUBTYPE_CONFIG.taxi;
+  const Icon = cfg.icon;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.5, y: 50 }}
-      animate={{ opacity: 1, scale: isHovered ? 1.1 : 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20, delay: (data.index || 0) * 0.15 }}
+      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      whileHover={{ scale: 1.05, zIndex: 50 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={clsx(
-        "relative w-48 rounded-none rounded-tr-xl rounded-br-xl border-y-2 border-r-2 border-l-[6px] bg-surface/80 backdrop-blur-md overflow-hidden shadow-lg transition-colors duration-300",
-        config.border, config.shadow
+        "relative min-w-[220px] rounded-2xl border bg-[#0A0A14]/90 backdrop-blur-xl transition-all duration-500",
+        cfg.border, isHovered ? cfg.glow : 'shadow-xl shadow-black/50',
+        "border-l-4"
       )}
+      style={{ boxShadow: isHovered ? `0 0 30px ${cfg.accent}30` : '' }}
     >
-      <Handle type="target" position={Position.Left} isConnectable={isConnectable} className="w-3 h-3 bg-white border-2 border-bg" />
+      <Handle type="target" position={Position.Left} isConnectable={isConnectable} className="!w-2 !h-2 !bg-white !border-none" />
       
+      {/* Glow Effect on Hover */}
+      {isHovered && (
+        <motion.div
+          layoutId="glow"
+          className="absolute inset-0 rounded-2xl opacity-20 pointer-events-none"
+          style={{ background: `radial-gradient(circle at center, ${cfg.accent}, transparent)` }}
+        />
+      )}
+
       {/* Header */}
-      <div className={clsx("px-3 py-2 flex items-center justify-between", config.color)}>
-        <div className="flex items-center gap-2 text-white">
-          <Icon size={14} />
-          <span className="text-xs font-bold tracking-wider uppercase">{data.subtype}</span>
+      <div className="flex items-center justify-between p-3 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className={clsx("p-1.5 rounded-lg", cfg.bg)}>
+            <Icon size={14} className={cfg.color} />
+          </div>
+          <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">{data.subtype}</span>
         </div>
-        {data.status === 'ON_TIME' ? (
-          <span className="text-[9px] font-bold bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded-sm">ON TIME</span>
-        ) : data.status === 'DELAYED' ? (
-          <span className="flex items-center gap-1 text-[9px] font-bold bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-sm animate-pulse">
-            <AlertCircle size={10} /> DELAYED
-          </span>
-        ) : null}
+        {data.status === 'ON TIME' ? (
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[9px] font-bold text-emerald-400">LIVE</span>
+          </div>
+        ) : data.status === 'DELAYED' && (
+          <div className="flex items-center gap-1">
+            <AlertCircle size={10} className="text-red-400" />
+            <span className="text-[9px] font-bold text-red-400">DELAYED</span>
+          </div>
+        )}
       </div>
 
       {/* Body */}
-      <div className="p-3 space-y-1">
-        <div className="text-sm font-bold text-white truncate">{data.label}</div>
-        <div className="flex items-center justify-between text-xs text-white/60">
-          <span>{data.departure} - {data.arrival}</span>
-          <span className="font-mono text-accent">₹{data.cost}</span>
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-bold text-white mb-1 line-clamp-1">{data.label}</h3>
+          <div className="flex items-center gap-2 text-[10px] text-white/40 font-mono">
+            <Clock size={10} />
+            <span>{data.departure} — {data.arrival}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between bg-black/40 rounded-xl px-3 py-2 border border-white/5">
+          <div className="flex flex-col">
+            <span className="text-[9px] text-white/30 uppercase tracking-tighter">Budget Est.</span>
+            <span className="text-xs font-mono text-emerald-400">₹{data.cost?.toLocaleString()}</span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-[9px] text-white/30 uppercase tracking-tighter">Dur.</span>
+            <span className="text-xs font-mono text-white/70">{data.duration || '2.5h'}</span>
+          </div>
         </div>
       </div>
 
-      {/* Expanded Details */}
+      {/* Expanded Details on Hover */}
       <AnimatePresence>
-        {isHovered && data.alternatives && (
+        {isHovered && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="px-3 pb-3 border-t border-white/10 bg-black/20"
+            className="px-4 pb-4 border-t border-white/5 bg-black/20"
           >
-            <div className="text-[10px] text-white/40 uppercase tracking-wider mt-2 mb-1">Alternatives</div>
-            <div className="space-y-1">
-              {data.alternatives.map((alt: any, i: number) => (
-                <div key={i} className="flex items-center justify-between text-[10px] text-white/70 bg-white/5 px-2 py-1 rounded">
-                  <span>{alt.flight || alt.mode}</span>
-                  <span className="text-accent">₹{alt.cost}</span>
+            {/* Carrier/Details */}
+            <div className="mt-3 space-y-3">
+              {data.carrier && (
+                <div className="text-[10px] text-white/60 bg-white/5 rounded-lg p-2 border border-white/5">
+                  <span className="text-white/30 mr-2">Carrier:</span>
+                  <span className="font-bold">{data.carrier}</span>
                 </div>
-              ))}
+              )}
+
+              {/* Alternatives */}
+              {data.alternatives && data.alternatives.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[9px] font-bold text-white/30 uppercase tracking-widest mt-4">
+                    <Zap size={10} className="text-amber-400" /> Alternatives
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {data.alternatives.map((alt: any, i: number) => (
+                      <motion.div
+                        key={i}
+                        initial={{ x: -10, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-2 rounded-lg border border-white/5 transition-colors group"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-white/80 group-hover:text-white transition-colors">{alt.mode || alt.flight}</span>
+                          <span className="text-[9px] text-white/40">{alt.duration || alt.time}</span>
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-400">₹{alt.cost?.toLocaleString()}</div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Handle type="source" position={Position.Right} isConnectable={isConnectable} className="w-3 h-3 bg-white border-2 border-bg" />
+      <Handle type="source" position={Position.Right} isConnectable={isConnectable} className="!w-2 !h-2 !bg-white !border-none" />
     </motion.div>
   );
 });

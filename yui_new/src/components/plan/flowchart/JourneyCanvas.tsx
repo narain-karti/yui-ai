@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -6,7 +6,6 @@ import {
   Background,
   useNodesState,
   useEdgesState,
-  addEdge,
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -33,13 +32,13 @@ export default function JourneyCanvas({ data }: { data: any }) {
   const [selectedNode, setSelectedNode] = useState<any>(null);
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || !data.nodes) return;
 
-    // Layout the nodes horizontally
-    const layoutedNodes = (data.nodes || []).map((node: any, index: number) => ({
+    // Layout nodes horizontally with spacing
+    const layoutedNodes = data.nodes.map((node: any, index: number) => ({
       ...node,
-      position: { x: index * 350 + 100, y: 250 },
-      type: node.type || 'location',
+      position: { x: index * 320 + 50, y: 150 + (index % 2 === 0 ? 0 : 80) }, // Staggered for futuristic look
+      style: { opacity: 0 }, // Initial opacity for entrance animation
       data: { ...node.data, index }
     }));
 
@@ -47,8 +46,13 @@ export default function JourneyCanvas({ data }: { data: any }) {
       ...edge,
       type: 'animated',
       animated: true,
-      style: { stroke: '#FF4F00', strokeWidth: 2 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#FF4F00' },
+      style: { stroke: '#a855f7', strokeWidth: 3, filter: 'drop-shadow(0 0 8px #a855f760)' },
+      markerEnd: { 
+        type: MarkerType.ArrowClosed, 
+        color: '#a855f7',
+        width: 20,
+        height: 20
+      },
     }));
 
     setNodes(layoutedNodes);
@@ -60,7 +64,13 @@ export default function JourneyCanvas({ data }: { data: any }) {
   }, []);
 
   return (
-    <div className="w-full h-full relative bg-[#07070E]">
+    <div className="w-full h-full relative bg-[#07070E] overflow-hidden">
+      {/* Background glow effects */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/30 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/30 blur-[120px] rounded-full" />
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -70,24 +80,27 @@ export default function JourneyCanvas({ data }: { data: any }) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        className="bg-[#07070E]"
+        className="bg-transparent"
+        minZoom={0.2}
+        maxZoom={1.5}
       >
-        <Background color="#ffffff" gap={16} size={1} opacity={0.05} />
-        <Controls className="bg-surface border-white/10 fill-white/50" />
+        <Background color="#ffffff" gap={20} size={1} opacity={0.03} />
+        <Controls className="bg-[#0A0A14] border border-white/10 fill-white/50 text-white !rounded-xl overflow-hidden" />
         <MiniMap 
           nodeColor={(node) => {
             switch (node.type) {
-              case 'transport': return '#185FA5';
-              case 'location': return '#0F6E56';
-              case 'wait': return '#444441';
-              default: return '#eee';
+              case 'transport': return '#3b82f6';
+              case 'location': return '#10b981';
+              case 'wait': return '#4b5563';
+              default: return '#8b5cf6';
             }
           }}
-          maskColor="rgba(0, 0, 0, 0.8)"
-          className="bg-surface border border-white/10"
+          maskColor="rgba(7, 7, 14, 0.9)"
+          className="bg-[#0A0A14] border border-white/10 rounded-2xl"
         />
       </ReactFlow>
 
+      {/* Node Dialog/Popup handled by the component */}
       {selectedNode && (
         <NodePopup 
           node={selectedNode} 
