@@ -6,7 +6,7 @@ import { createExpressApp } from './src/server/app';
 
 async function startServer() {
   const app = createExpressApp();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
