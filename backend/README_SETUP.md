@@ -22,14 +22,23 @@ Create a `.env` in the `backend/` directory with the following keys:
     ```
     *Copy the public URL (e.g., `https://random-words.trycloudflare.com`).*
 
-## 3. Registering the Webhook
-Run the setup script one-time to tell Telegram where your server is:
+## 3. Registering the Telegram Webhook
+Run the automation script to tell Telegram where your server is:
 ```bash
-python scripts/setup_telegram.py --url https://<YOUR_TUNNEL_URL>
+python scripts/set_telegram_webhook.py https://<YOUR_TUNNEL_URL>
 ```
 *Note: This automatically registers the `X-Telegram-Bot-Api-Secret-Token` for security.*
 
-## 4. Testing Core Abilities
+## 4. Registering the Duffel Webhook
+1.  Go to the **Duffel Dashboard > Webhooks**.
+2.  Set the URL to: `https://<YOUR_TUNNEL_URL>/duffel-webhook`.
+3.  Ensure the following events are selected:
+    *   `order.airline_initiated_change_detected`
+    *   `order.created`
+    *   `ping.triggered`
+4.  Copy the **Webhook Secret** and update `DUFFEL_WEBHOOK_SECRET` in your `.env`.
+
+## 5. Testing Core Abilities
 ### A. Searching & Booking (Interactive)
 1.  Open your Telegram bot.
 2.  Type: `book a flight from MAA to BOM on April 30th`.
@@ -37,18 +46,15 @@ python scripts/setup_telegram.py --url https://<YOUR_TUNNEL_URL>
 4.  Verify the Order ID appears and is logged in **Duffel Dashboard (Sandbox)**.
 
 ### B. Live Flight Status
-1.  In Telegram, ask: `What is the status of my flight <ORDER_ID>?`.
+1.  In Telegram, ask: `What is the status of my flight?`.
 2.  Yui will query the live Duffel API and return the route/confirmation status.
 
-## 5. Testing Autonomous Rebooking (The "Hero" Feature)
+## 6. Testing Autonomous Rebooking (The "Hero" Feature)
 To verify the **proactive** side of the agent without waiting for a real airline delay:
 1.  Ensure the server is running.
-2.  In a new terminal, run the local simulation script:
-    ```bash
-    cd Yui
-    python backend/scripts/test_webhook.py
-    ```
-3.  **Check Telegram**: You should immediately receive a **🚨 Travel Alert!** followed by a proactive **✅ Alternative Found!** message with a rebooking button.
+2.  In the **Duffel Dashboard**, go to your Webhook and click **"Ping"**.
+3.  **Check Terminal**: You should see a `200 OK` and a `pong` message.
+4.  To simulate a real disruption, use the `scripts/test_webhook.py` (for local simulation) or trigger a change in the Duffel Sandbox for the order you just made.
 
-## 6. Monitoring
+## 7. Monitoring
 All AI thoughts, API calls, and errors are logged in real-time to your **Supabase `agent_logs` table**.

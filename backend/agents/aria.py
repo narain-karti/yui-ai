@@ -95,9 +95,26 @@ async def check_flight(chat_id: int, params: dict = {}):
     await log("system", "aria", "CHECK_FLIGHT", f"User checking status for {order_id or 'last flight'}")
     
     if not order_id:
-        # For the demo, if no ID provided, we simulate a check on the most recent known demo flight
-        await send_message(chat_id, "🔍 **Real-time Status Check:**\n\nFlight: **AI345** (MAA -> BOM)\nStatus: **ON TIME**\nGate: **12B**\nScheduled: 20:45\nExpected: 20:45\n\n*Safe travels!*")
-        return
+        # Query Supabase for the most recent booking for this chat_id
+        from core.supabase import supabase
+        try:
+            res = supabase.table("user_bookings") \
+                .select("order_id") \
+                .eq("chat_id", chat_id) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            if res.data:
+                order_id = res.data[0]["order_id"]
+                await log("system", "aria", "DATABASE_FETCH", f"Found recent order {order_id} for user {chat_id}")
+            else:
+                await send_message(chat_id, "You haven't booked any flights yet with Yui. Use /start to begin!")
+                return
+        except Exception as e:
+            await log("system", "aria", "DB_ERROR", str(e))
+            await send_message(chat_id, "I couldn't retrieve your recent bookings. Please provide an Order ID or try again later.")
+            return
 
     try:
         order = await get_order_status(order_id)
@@ -112,9 +129,13 @@ async def check_flight(chat_id: int, params: dict = {}):
             status = data.get("payment_status", {}).get("awaiting_payment")
             status_text = "CONFIRMED" if not status else "PENDING PAYMENT"
             
+            # Extract date and time
+            departure_dt = first_slice.get("departure_datetime", "TBD")
+            
             msg = f"🔍 **Live Order Status:**\n\n"
             msg += f"Order ID: `{data.get('id')}`\n"
             msg += f"Route: **{origin}** ✈️ **{dest}**\n"
+            msg += f"Departure: **{departure_dt}**\n"
             msg += f"Status: **{status_text}**\n"
             msg += f"Ref: `{data.get('booking_reference')}`\n\n"
             msg += "*Sync status: Data up to date via Duffel.*"
@@ -153,19 +174,42 @@ async def process_disruption(trip_id: str, new_eta: str, delay_mins: int, chat_i
     from services.telegram_client import send_message
     from core.logger import log
     
-    target_chat_id = chat_id or 6227536917 
+    # Identify the user and route from Supabase
+    from core.supabase import supabase
+    target_chat_id = chat_id
+    origin = "MAA"
+    destination = "BOM"
+    date = "2026-04-15"
+
+    try:
+        res = supabase.table("user_bookings") \
+            .select("chat_id, origin, destination, departure_date") \
+            .eq("order_id", trip_id) \
+            .execute()
+        
+        if res.data:
+            target_chat_id = res.data[0]["chat_id"]
+            origin = res.data[0].get("origin") or origin
+            destination = res.data[0].get("destination") or destination
+            date = res.data[0].get("departure_date") or date
+        else:
+            await log("system", "aria", "ROUTING_FAILED", f"No chat_id found for order {trip_id}. Skipping notification.")
+            return
+    except Exception as e:
+        await log("system", "aria", "DB_ERROR", f"Error looking up user for disruption: {str(e)}")
+        if not target_chat_id: return
+
+    await log("system", "aria", "DISRUPTION_DETECTED", f"Alerting user {target_chat_id} for {trip_id}. Delay: {delay_mins}m")
     
-    await log("system", "aria", "DISRUPTION_DETECTED", f"Autonomous response triggered for {trip_id}. Delay: {delay_mins}m")
-    
-    alert = f"🚨 **Travel Alert!**\n\nYour flight (ID: `{trip_id}`) is experiencing a delay of **{delay_mins} minutes**. New ETA: **{new_eta}**.\n\nI'm already searching for the best alternative flights for you. Give me one moment..."
+    alert = f"🚨 **Travel Alert!**\n\nYour flight to **{destination}** (Ref: `{trip_id}`) is experiencing a delay. New ETA: **{new_eta}**.\n\nI'm already searching for the best alternative flights for you. Give me one moment..."
     await send_message(target_chat_id, alert)
     
     from services.duffel import search_flights
     try:
         # Debug: check what's being sent
-        await log("system", "aria", "DEBUG", "Starting autonomous search for LHR->JFK on 2026-04-30")
+        await log("system", "aria", "DEBUG", f"Starting autonomous search for {origin}->{destination} on {date}")
         
-        alt_flights = await search_flights("LHR", "JFK", "2026-04-30")
+        alt_flights = await search_flights(origin, destination, date)
         
         # Debug: check what's being received
         if "errors" in alt_flights:
@@ -242,6 +286,29 @@ async def process_callback_action(chat_id: int, action_data: str, user: dict = N
                 return
                 
             order_id = results.get("data", {}).get("id")
+            
+            # Persist to Supabase for later retrieval
+            from core.supabase import supabase
+            try:
+                data = results.get("data", {})
+                slices = data.get("slices", [])
+                first_slice = slices[0] if slices else {}
+                
+                # Extract details for persistent storage
+                booking_record = {
+                    "order_id": order_id,
+                    "chat_id": chat_id,
+                    "origin": first_slice.get("origin", {}).get("iata_code"),
+                    "destination": first_slice.get("destination", {}).get("iata_code"),
+                    "departure_date": first_slice.get("departure_date"),
+                    "status": "confirmed"
+                }
+                supabase.table("user_bookings").insert(booking_record).execute()
+                await log("system", "aria", "DB_PERSIST", f"Saved order {order_id} for user {chat_id}")
+            except Exception as db_err:
+                await log("system", "aria", "DB_ERROR", f"Failed to persist booking: {str(db_err)}")
+                # Don't fail the user message even if DB persist fails, as the booking IS successful on Duffel
+
             await send_message(chat_id, f"✅ **Success!** Your flight is booked.\nOrder ID: `{order_id}`")
         except Exception as e:
             await log("system", "aria", "BOOK_ERROR", str(e))
